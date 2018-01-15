@@ -1,1 +1,159 @@
 PAC Code intructions
+This code is for use of Phase Amplitude Analysis on brain signals as described in Tort et al. 2010 and then further modified.
+The code is written for MATLAB and has been optimized for version R2017b.
+For any questions or concerns please contact Dr. Michael Caiola at mcaiola@emory.edu.
+Please acknowledge the author, the Wichmann Lab, Yerkes National Primate Reasearch Center, and Emory University in all works where approporiate.
+
+Below is the docutmentation for and sample run script and PAC_par.m (the main code used to run the PAC analysis).
+Feel free to use the sample run script or the examples in the PAC_par documentation to get started.
+
+-------------------------------------------------------------------------------------------------------------
+%Simple Routine for PAC
+%  Requires: PAC_par.m
+%
+%  LAST UPDATED: 01.15.2018 by Mike Caiola
+%   changelog: 10.08.15 - Added more instructions and save functionality
+%              09.21.17 - Updated use with current files
+%              01.15.18 - Updated examples for use with GitHub
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%   Intructions For Use:
+%   1) Load neural signal
+x=load('LFP');
+%   2) Input filnename to save to
+savename='Test';
+%   3) Input parameters
+Phase_min=4;
+Phase_max=52;
+Phase_step=2;
+Amp_min=15;
+Amp_max=400;
+Amp_step=5;
+%   4) Add addtional options (see PAC documentation)
+%options={'interfilt'};
+options={'filter','wavelet'};
+%   5) Push Run
+
+
+%%%%Don't change below%%%%
+fs=1000;
+Param=[Phase_min,Phase_max,Phase_step,Amp_min,Amp_max,Amp_step];
+options{end+1}='param';
+options{end+1}=Param;
+options{end+1}='savemore';
+MI=PAC_par(lfp,[],fs,[],options{:});
+hold on
+plot(phase,amp,'rx')
+save(['Data/',savename],'MI','-v7.3')
+
+
+-------------------------------------------------------------------------------------------------------------
+
+PAC_par Documentation:
+%%Parallel Phase-Amplitude Coupling a la Tort
+%Inputs:    x - input signal (as column or row vector)
+%           freq - 1) [a1 a2;b1 b2] makes 1-D MI up to 2 diagrams
+%           (depending on TOL). a1 and b1 are lowcutoff frequencies and a2
+%           and b2 are hicutoff frequencies. The order doesn't matter as
+%           all combinations are checked.
+%                  2) n x 2 matrix allows for all phase amplitude pairs
+%                  combinations to be compared.
+%                  3) [] makes 2-D MI diagram
+%           fs - sampling rate
+%           Num_bin - number of bins (default is 18)
+%Optional: 'average', <cut> - average data over <cut> seconds (will turn
+%               off 'savemore')
+%Optional: 'plotless' - does not display plot
+%Optional: 'filtorder' - change filtorder
+%Optional: 'savemore' - saves all filtered signals and hilbert signals
+%               currently only on 2-D code
+%Optional: 'meanless' - turns off mean correcting feature (does not work on
+%               pop_eegfiltnew)
+%Optional: 'interfilt' - allows interactive filter view at individual PA pairs
+%Optional: 'trueplot' - plots overlapping patches per bin size
+%Optional: 'PAC3D' - plots the 3-D PAC (not available with variable bins)
+%
+%Optional: 'filter', <filter name> - change filter from pop_eegfiltnew
+%   Filter options: 'old'       - uses eegfilt.
+%                   'firls'     - uses firls (requires 'filtorder').
+%                   'fir1'      - uses fir1 with hamming windowing
+%                                   (requires 'filtorder').
+%                   'kaiser'    - uses fir1 with kaiser windowing.
+%                   'cheby'     - uses cheby1.
+%                   'ellip'     - uses ellip.
+%                   'ellipp'    - uses ellip with order calculation.
+%                   'butter'    - uses butter filter.
+%                   'variable'  - uses larger Amplitude bins to account for
+%                                   increasing phase and butter for filter.
+%                   'wavelet'    - Morlet wavelet with optional paramters.
+%
+%Example 1: Take signal x (sampled at 1000 Hz) and compute the 1-D PAC for
+%   phase 20 and amplitude 100 with a buffer of 5 Hz on both sides.
+%
+%   MI=PAC_par(x,[15,25;95,105],1000);
+%   Output: MI vector with two entries (20 phase and 100 amp & 100 phase
+%   and 20 amp) and up to two 1-D MI graphs (depending if the MI is over
+%   TOL).
+%
+%Example 2: Take signal x (sampled at 1000 Hz) and compute the 1-D PAC for
+%   phase 20 and amplitude 100 and also for phase 40 and amplitude 100 with
+%   5 Hz buffer.
+%
+%   MI=PAC_par(x,[15,25;95,105;35,45],1000);
+%   Output: MI vector with 6 entries ([20,100], [20,40], [100,20],
+%   [100,40], [40,20], [40,100]) and up to 6 1-D MI graphs (depending if
+%   the MI is over TOL).
+%
+%Example 3: Take signal x (sampled at 1000 Hz) and compute the 2-D PAC.
+%
+%   MI=PAC_par(x,[],1000);
+%   Output: MI and 2-D PAC with default parameters.
+%
+%Example 4: Take signal x (sampled at 1000 Hz) and compute the 2-D PAC with
+%   Phase from 4-50 in intervals of 2Hz and Amplitude from 45-200 with
+%   intervals of 5Hz.
+%
+%   MI=PAC_par(x,[],1000,[],'param',[4 50 2 45 100 5]);
+%   Output: MI and 2-D PAC with given parameters.
+%
+%Example 5: Take 100 second signal, x (sampled at 1000 Hz), and compute the
+%   MI for every 10 seconds and average them together into one 2-D plot and
+%   one average MI.
+%
+%   [MI,MI_all]=PAC_par(x,[],1000,[],'average',10);
+%   Output: Average MI and vector of 10 individual MIs in MI_all. Plot
+%   output is a 2-D PAC.
+%
+%Example 6: Take signal x (sampled at 1000 Hz) and compute the 2-D PAC with
+%   Phase from 2-50 in intervals of 2Hz and AMplitude from 5-400 with
+%   intervales of 5Hz with a filter order of 4 with no output of plots.
+%
+%   MI=PAC_par(x,[],1000,[],'param',[2 50 2 5 400 5], 'filter','variable','filtorder',4,'plotless');
+%   Output: MI calculated with variable bin filter.
+%
+%Example 7: Take singla x sampled at 1000 Hz and compute the 3-D PAC with
+%   the wavelet filter
+%
+%   MI=PAC_par(x,[],1000,[],'filter','wavelet','PAC3D');
+%   Output: The 2-D PAC and two versions (countour and blob) of the 3-D PAC
+%
+%  Code based on the MI procedures by Tort et al. 2010
+%
+%
+%LAST UPDATED: 10.26.2017 by Mike Caiola
+%   changelog: 09.07.16 - Began code branch to add parallel option
+%              09.13.16 - Bug fixes
+%              11.10.16 - Added Variable filter and documentation
+%              11.21.16 - Consolidated 1D into 2D code
+%              12.06.16 - Added 'debug' option to allow interactive looks
+%                           at the psd of the completed PSDs
+%              12.07.16 - Added legacy option to run older versions of code
+%              12.26.16 - Allowed 'Average' to truncate signal
+%              03.02.17 - Began to remove uneeded documentation
+%              09.26.17 - Added MI bar graph into 'debug' option
+%              10.06.17 - Bug Fix
+%              10.10.17 - Added 'trueplot' option
+%              10.19.17 - Added wavelet filter
+%              10.20.17 - Added wavlet options, removed TOL and hybrid
+%              10.24.17 - Added wavelet3d option, quite slow still
+%              10.26.17 - Disabled wavelet3d and added superior PAC3D
