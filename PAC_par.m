@@ -17,8 +17,9 @@
 %               currently only on 2-D code
 %Optional: 'meanless' - turns off mean correcting feature (does not work on
 %               pop_eegfiltnew)
-%Optional: 'debug' - allows interactive filter view at individual PA pairs
+%Optional: 'interfilt' - allows interactive filter view at individual PA pairs
 %Optional: 'trueplot' - plots overlapping patches per bin size
+%Optional: 'PAC3D' - plots the 3-D PAC (not available with variable bins)
 %
 %Optional: 'filter', <filter name> - change filter from pop_eegfiltnew
 %   Filter options: 'old'       - uses eegfilt.
@@ -78,10 +79,16 @@
 %   MI=PAC_par(x,[],1000,[],'param',[2 50 2 5 400 5], 'filter','variable','filtorder',4,'plotless');
 %   Output: MI calculated with variable bin filter.
 %
-%  Code based on the MI procedures by Tort et al.
+%Example 7: Take singla x sampled at 1000 Hz and compute the 3-D PAC with
+%   the wavelet filter
+%
+%   MI=PAC_par(x,[],1000,[],'filter','wavelet','PAC3D');
+%   Output: The 2-D PAC and two versions (countour and blob) of the 3-D PAC
+%
+%  Code based on the MI procedures by Tort et al. 2010
 %
 %
-%LAST UPDATED: 10.24.2017 by Mike Caiola
+%LAST UPDATED: 10.26.2017 by Mike Caiola
 %   changelog: 09.07.16 - Began code branch to add parallel option
 %              09.13.16 - Bug fixes
 %              11.10.16 - Added Variable filter and documentation
@@ -125,7 +132,7 @@ opt_ellipp=0;
 opt_wavelet=0;
 opt_save=0;
 opt_var=0;
-opt_debug=0;
+opt_interfilt=0;
 opt_runtime=0;
 opt_trueplot=0;
 opt_w3D=0;
@@ -204,8 +211,8 @@ if numvarargs~=0; k=1;
                 k=k+1;
             case 'waveletlog'
                 woptions=[woptions,'log'];
-            case 'debug'
-                opt_debug=1;
+            case 'interfilt'
+                opt_interfilt=1;
             case 'trueplot'
                 opt_trueplot=1;
             case 'PAC3D'
@@ -374,7 +381,7 @@ for cuti=1:length(x_original)/cut    %Large for-loop for multiple run-throughs
             else
                 [y,~,bp]=pop_eegfiltnew(EEG,Phase_bin(ip,1), (Phase_bin(ip,1)+2*Phase_step),filtorder);
             end
-            if opt_debug
+            if opt_interfilt
                 dbg_binp(ip,:)=[Phase_bin(ip,1) (Phase_bin(ip,1)+2*Phase_step)];
             end
             theta(ip,:)=angle(hilbert(y));
@@ -415,7 +422,7 @@ for cuti=1:length(x_original)/cut    %Large for-loop for multiple run-throughs
                 else
                     [y,~,ba]=pop_eegfiltnew(EEG,(Amp_bin(jp,1)), (Amp_bin(jp,1)+2*Amp_step),filtorder);
                 end
-                if opt_debug
+                if opt_interfilt
                     if ~(opt_butter || opt_ellip || opt_ellipp || opt_cheby)
                         aa=1;
                     end
@@ -443,7 +450,7 @@ for cuti=1:length(x_original)/cut    %Large for-loop for multiple run-throughs
             elseif opt_var
                 [b,a]=butter(filtorder,[max([.1,ab_s(j)-pb_s(i)]) ab_s(j)+pb_s(i)]/(fs/2));
                 y=filtfilt(b,a,x);
-                if opt_debug
+                if opt_interfilt
                     dbg_coeffbp{j,i}=b;
                     dbg_coeffap{j,i}=a;
                 end
@@ -550,7 +557,7 @@ if opt_plot     %Plotting procedure
         ylabel('Amplitude')
         colorbar;
         plot(ceil(Amp_min/2):Phase_step:Phase_max,2*(ceil(Amp_min/2):Phase_step:Phase_max),'w--')
-        if opt_debug
+        if opt_interfilt
             button=1;
             while button<3
                 title({'DEBUG MODE';'Click to investigate point'})
