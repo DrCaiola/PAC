@@ -7,7 +7,7 @@ Please acknowledge the author, the Wichmann Lab, Yerkes National Primate Reasear
 Below is the docutmentation for and sample run script and PAC_par.m (the main code used to run the PAC analysis).
 Feel free to use the sample run script or the examples in the PAC_par documentation to get started.
 
--------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------
 %Simple Routine for PAC
 %  Requires: PAC_par.m
 %
@@ -47,7 +47,7 @@ plot(phase,amp,'rx')
 save(['Data/',savename],'MI','-v7.3')
 
 
--------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------
 
 PAC_par Documentation:
 %%Parallel Phase-Amplitude Coupling a la Tort
