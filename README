@@ -1,4 +1,4 @@
-[![DOI](https://zenodo.org/badge/111568323.svg)](https://zenodo.org/badge/latestdoi/111568323)
+https://zenodo.org/badge/DOI/10.5281/zenodo.3368419.svg
 PAC Code intructions
 This code is for use of Phase Amplitude Analysis on brain signals as described in Tort et al. 2010 and then further modified.
 The code is written for MATLAB and has been optimized for version R2017b.
