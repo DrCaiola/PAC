@@ -51,7 +51,8 @@ save(['Data/',savename],'MI','-v7.3')
 
 PAC_par Documentation:
 %%Parallel Phase-Amplitude Coupling a la Tort
-%Inputs:    x - input signal (as column or row vector)
+%Inputs:    x - input signal (as column or row vector). If matrix the first
+%           two col/row will be used as phase/amp respectively
 %           freq - 1) [a1 a2;b1 b2] makes 1-D MI up to 2 diagrams
 %           (depending on TOL). a1 and b1 are lowcutoff frequencies and a2
 %           and b2 are hicutoff frequencies. The order doesn't matter as
@@ -131,7 +132,7 @@ PAC_par Documentation:
 %   MI=PAC_par(x,[],1000,[],'param',[2 50 2 5 400 5], 'filter','variable','filtorder',4,'plotless');
 %   Output: MI calculated with variable bin filter.
 %
-%Example 7: Take singla x sampled at 1000 Hz and compute the 3-D PAC with
+%Example 7: Take signal x sampled at 1000 Hz and compute the 3-D PAC with
 %   the wavelet filter
 %
 %   MI=PAC_par(x,[],1000,[],'filter','wavelet','PAC3D');
@@ -140,7 +141,7 @@ PAC_par Documentation:
 %  Code based on the MI procedures by Tort et al. 2010
 %
 %
-%LAST UPDATED: 10.26.2017 by Mike Caiola
+%LAST UPDATED: 06.06.2019 by Mike Caiola
 %   changelog: 09.07.16 - Began code branch to add parallel option
 %              09.13.16 - Bug fixes
 %              11.10.16 - Added Variable filter and documentation
@@ -157,3 +158,6 @@ PAC_par Documentation:
 %              10.20.17 - Added wavlet options, removed TOL and hybrid
 %              10.24.17 - Added wavelet3d option, quite slow still
 %              10.26.17 - Disabled wavelet3d and added superior PAC3D
+%              05.02.18 - Added struc output & bug fix
+%              03.28.19 - Added ability for cross-freq PAC
+%              06.06.19 - Added no overlap bin option
