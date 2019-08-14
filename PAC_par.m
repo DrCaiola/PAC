@@ -1,5 +1,6 @@
 %%Parallel Phase-Amplitude Coupling a la Tort
-%Inputs:    x - input signal (as column or row vector)
+%Inputs:    x - input signal (as column or row vector). If matrix the first
+%           two col/row will be used as phase/amp respectively
 %           freq - 1) [a1 a2;b1 b2] makes 1-D MI up to 2 diagrams
 %           (depending on TOL). a1 and b1 are lowcutoff frequencies and a2
 %           and b2 are hicutoff frequencies. The order doesn't matter as
@@ -79,7 +80,7 @@
 %   MI=PAC_par(x,[],1000,[],'param',[2 50 2 5 400 5], 'filter','variable','filtorder',4,'plotless');
 %   Output: MI calculated with variable bin filter.
 %
-%Example 7: Take singla x sampled at 1000 Hz and compute the 3-D PAC with
+%Example 7: Take signal x sampled at 1000 Hz and compute the 3-D PAC with
 %   the wavelet filter
 %
 %   MI=PAC_par(x,[],1000,[],'filter','wavelet','PAC3D');
@@ -88,7 +89,7 @@
 %  Code based on the MI procedures by Tort et al. 2010
 %
 %
-%LAST UPDATED: 10.26.2017 by Mike Caiola
+%LAST UPDATED: 06.06.2019 by Mike Caiola
 %   changelog: 09.07.16 - Began code branch to add parallel option
 %              09.13.16 - Bug fixes
 %              11.10.16 - Added Variable filter and documentation
@@ -105,11 +106,25 @@
 %              10.20.17 - Added wavlet options, removed TOL and hybrid
 %              10.24.17 - Added wavelet3d option, quite slow still
 %              10.26.17 - Disabled wavelet3d and added superior PAC3D
-function [MI,MI_all]=PAC_par(x,freq,fs,Num_bin,varargin)
+%              05.02.18 - Added struc output & bug fix
+%              03.28.19 - Added ability for cross-freq PAC
+%              06.06.19 - Added no overlap bin option
+function [MI,MI_out]=PAC_par(x,freq,fs,Num_bin,varargin)
 %% Setup
 %Rearrange signal
-if size(x,2)==1
-    x=x';
+if size(x,1)>1 && size(x,2)>1
+    if size(x,1)>size(x,2)
+        x2=x(:,2)';
+        x=x(:,1)';
+    else
+        x2=x(2,:);
+        x=x(1,:);
+    end
+else
+    if size(x,2)==1
+        x=x';
+    end
+    x2=x;
 end
 warning('off', 'MATLAB:mir_warning_maybe_uninitialized_temporary')
 %Optional parameters
@@ -136,6 +151,7 @@ opt_interfilt=0;
 opt_runtime=0;
 opt_trueplot=0;
 opt_w3D=0;
+ovl=1;
 woptions={};
 dfp=[]; df=[];
 cut=length(x);
@@ -215,6 +231,8 @@ if numvarargs~=0; k=1;
                 opt_interfilt=1;
             case 'trueplot'
                 opt_trueplot=1;
+            case 'nooverlap'
+                ovl=2;
             case 'PAC3D'
                 opt_w3D=1;
                 m_sec=30;
@@ -236,7 +254,7 @@ if numvarargs~=0; k=1;
                 end
             case 'average'
                 opt_avg=1;
-                cut=varargin{k+1}*fs;
+                cut=round(varargin{k+1}*fs);
                 k=k+1;
                 if mod(length(x),cut)
                     x=x(1:end-mod(length(x),cut));
@@ -322,11 +340,11 @@ for cuti=1:length(x_original)/cut    %Large for-loop for multiple run-throughs
             Amp_step=freq(2,2)-freq(2,1);
         end
     end
-    pb_s=Phase_min:Phase_step:Phase_max;
+    pb_s=Phase_min:ovl*Phase_step:Phase_max;
     lpb_s=length(pb_s);
     Phase_bin=zeros(lpb_s,2);
     theta=zeros(lpb_s,length(x));
-    ab_s=Amp_min:Amp_step:Amp_max;
+    ab_s=Amp_min:ovl*Amp_step:Amp_max;
     lab_s=length(ab_s);
     Amp_bin=zeros(lab_s,2);
     %Ampp=zeros(lab_s,length(x));
@@ -342,7 +360,7 @@ for cuti=1:length(x_original)/cut    %Large for-loop for multiple run-throughs
         end
     end
     if cuti==1
-        MI=zeros((Amp_max-Amp_min)/Amp_step+1,(Phase_max-Phase_min)/Phase_step+1,length(x_original)/cut);
+        MI=zeros(floor((Amp_max-Amp_min)/(ovl*Amp_step)+1),floor((Phase_max-Phase_min)/(ovl*Phase_step)+1),length(x_original)/cut);
     end
     if opt_wavelet
         theta=Wavletfilter(x,fs,pb_s,'phase',woptions{:});
@@ -390,35 +408,36 @@ for cuti=1:length(x_original)/cut    %Large for-loop for multiple run-throughs
     %close(h);
     if ~opt_var
         if opt_wavelet
-            Amp=Wavletfilter(x,fs,ab_s,'amplitude',woptions{:});
+            Amp=Wavletfilter(x2,fs,ab_s,'amplitude',woptions{:});
         else
+            EEG=struct('data',x2,'srate',fs,'pnts',length(x));
             parfor jp=1:lab_s
                 if opt_old
-                    [y,ba]=eegfilt(x,fs,(Amp_bin(jp,1)), (Amp_bin(jp,1)+2*Amp_step),0,filtorder);
+                    [y,ba]=eegfilt(x2,fs,(Amp_bin(jp,1)), (Amp_bin(jp,1)+2*Amp_step),0,filtorder);
                 elseif opt_firls
                     ba=firls(filtorder,[0 (1-.15)*(Amp_bin(jp,1))/(fs/2) (Amp_bin(jp,1))/(fs/2) (Amp_bin(jp,1)+2*Amp_step)/(fs/2) (1+.15)*(Amp_bin(jp,1)+2*Amp_step)/(fs/2) 1],[0 0 1 1 0 0]);
-                    y=filtfilt(ba,1,x);
+                    y=filtfilt(ba,1,x2);
                 elseif opt_fir1
                     ba=fir1(filtorder,[(Amp_bin(jp,1)) (Amp_bin(jp,1)+2*Amp_step)]/(fs/2));
-                    y=filtfilt(ba,1,x);
+                    y=filtfilt(ba,1,x2);
                 elseif opt_butter
                     [ba,aa]=butter(filtorder,[(Amp_bin(jp,1)) (Amp_bin(jp,1)+2*Amp_step)]/(fs/2));
-                    y=filtfilt(ba,aa,x);
+                    y=filtfilt(ba,aa,2);
                 elseif opt_ellip
                     [ba,aa]=ellip(filtorder,.05,50,[(Amp_bin(jp,1)) (Amp_bin(jp,1)+2*Amp_step)]/(fs/2));
-                    y=filtfilt(ba,aa,x);
+                    y=filtfilt(ba,aa,x2);
                 elseif opt_ellipp
                     [n,Wp] = ellipord([(Amp_bin(jp,1)) (Amp_bin(jp,1)+2*Amp_step)]/(fs/2),[(Amp_bin(jp,1))-(min(max((Amp_bin(jp,1))/4, 2),(Amp_bin(jp,1)))-.00001),(Amp_bin(jp,1)+2*Amp_step)+(min(max((Amp_bin(jp,1))/4, 2),(Amp_bin(jp,1)))-.00001)]/(fs/2),.05,50);
                     [ba,aa] = ellip(n,.05,50,Wp);
-                    y=filter(ba,aa,x);
+                    y=filter(ba,aa,x2);
                 elseif opt_cheby
                     [ba,aa]=cheby1(filtorder,.05,[(Amp_bin(jp,1)) (Amp_bin(jp,1)+2*Amp_step)]/(fs/2));
-                    y=filtfilt(ba,aa,x);
+                    y=filtfilt(ba,aa,x2);
                 elseif opt_kaiser
                     [n,Wn,beta,ftype] = kaiserord([(Amp_bin(jp,1))-(min(max((Amp_bin(jp,1))/4, 2),(Amp_bin(jp,1)))),(Amp_bin(jp,1)), (Amp_bin(jp,1)+2*Amp_step), (Amp_bin(jp,1)+2*Amp_step)+(min(max((Amp_bin(jp,1))/4, 2),(Amp_bin(jp,1))))],[0 1 0],[.01 .05 .01],fs);
                     n = n + rem(n,2);
                     ba = fir1(n,Wn,ftype,kaiser(n+1,beta),'noscale');
-                    y=kfilt(x,ba);
+                    y=kfilt(x2,ba);
                 else
                     [y,~,ba]=pop_eegfiltnew(EEG,(Amp_bin(jp,1)), (Amp_bin(jp,1)+2*Amp_step),filtorder);
                 end
@@ -439,9 +458,7 @@ for cuti=1:length(x_original)/cut    %Large for-loop for multiple run-throughs
     end
     if opt_var
         dbg_bin=zeros(lab_s,lpb_s,2);
-        if opt_w3D
-            tAmp=zeros(lab_s,lpb_s,length(x));
-        end
+        tAmp=zeros(lab_s,lpb_s,length(x));
     end
     parfor i=1:lpb_s
         for j=1:lab_s
@@ -449,16 +466,14 @@ for cuti=1:length(x_original)/cut    %Large for-loop for multiple run-throughs
                 MI(j,i,cuti)=abs(mean(Amp(j,:).*exp(1i*theta(i,:))));
             elseif opt_var
                 [b,a]=butter(filtorder,[max([.1,ab_s(j)-pb_s(i)]) ab_s(j)+pb_s(i)]/(fs/2));
-                y=filtfilt(b,a,x);
+                y=filtfilt(b,a,x2);
                 if opt_interfilt
                     dbg_coeffbp{j,i}=b;
                     dbg_coeffap{j,i}=a;
                 end
                 dbg_bin(j,i,:)=[max([.1,ab_s(j)-pb_s(i)]) ab_s(j)+pb_s(i)];
                 Ampp=abs(hilbert(y));
-                if opt_w3D
-                    tAmp(j,i,:)=Ampp;
-                end
+                tAmp(j,i,:)=Ampp;
                 MeanAp=zeros(1,Num_bin);
                 if ~isnan(Ampp)
                     for kp=1:Num_bin
@@ -548,7 +563,7 @@ if opt_plot     %Plotting procedure
             end
             axis([P(1,1),P(end,end),A(1,1),A(end,end)])
         else
-            figure; hold all; contourf(Phase_min:Phase_step:Phase_max,Amp_min:Amp_step:Amp_max,MI,30,'lines','none')
+            figure; hold all; contourf(Phase_min:ovl*Phase_step:Phase_max,Amp_min:ovl*Amp_step:Amp_max,MI,30,'lines','none')
             if opt_filter
                 title(['(Filter: ' filtername,')'])
             end
@@ -615,11 +630,14 @@ if opt_plot     %Plotting procedure
         end
     end
 end
+if opt_var
+    Amp=tAmp;
+end
 if opt_w3D
-    if opt_var
-        Amp=tAmp;
-    end
-    PAC3D(x,theta,Amp,fs,m_sec,dt,param,Num_bin,plotnum);
+    MI3=PAC3D(x,theta,Amp,fs,m_sec,dt,param,Num_bin,plotnum);
+    MI_out.dt=dt;
+    MI_out.m_sec=m_sec;
+    MI_out.MI3=MI3;
 end
 if opt_save
     MIs.MI=MI;
@@ -628,6 +646,14 @@ end
 if opt_runtime
     toc(tstart)
 end
+MI_out.signal=x;
+MI_out.filtername=filtername;
+MI_out.MI_all=MI_all;
+MI_out.param=param;
+MI_out.Num_bin=Num_bin;
+MI_out.theta=theta;
+MI_out.Amp=Amp;
+MI_out.fs=fs;
 end
 
 %% SUBROUTINES
@@ -752,7 +778,7 @@ else
     s=cycles.*ones(1,num_frex)./(2*pi*bins);
 end
 
-% definte convolution parameters
+% define convolution parameters
 n_wavelet=length(time);
 n_data=length(x);
 n_total=n_wavelet+n_data-1;
@@ -780,7 +806,7 @@ else
     Y=Z;
 end
 end
-function PAC3D(x,theta,Amp,fs,m_sec,dt,param,Num_bin,plotnum)
+function MI3=PAC3D(x,theta,Amp,fs,m_sec,dt,param,Num_bin,plotnum)
 if nargin<9
     plotnum=0;
 end
@@ -792,7 +818,7 @@ frames=floor((length(x)-m_sec*fs-1)/(dt*fs));
 MI3=zeros(size(Amp,1),size(theta,1),frames);
 sA=size(Amp,1);
 sP=size(theta,1);
-if size(sA,3)>1
+if size(Amp,3)>1
     for k=1:frames
         btemp=zeros(sA,sP);
         kamp=Amp(:,:,(1+(k-1)*(dt*fs)):(1+(k-1)*(dt*fs)+m_sec*fs));
@@ -856,7 +882,7 @@ end
 time_array=m_sec:dt:m_sec+(frames-1)*dt;
 if plotnum==0 || plotnum==1
     figure;
-    contourslice(param(1):param(3):param(2),time_array,param(4):param(6):param(5),permute(MI3,[3,2,1]),[],time_array,[]);
+    contourslice(param(1):param(3):param(2),time_array,param(4):param(6):param(5),permute(MI3,[3,2,1]),[],time_array,[],1);
     alpha(.9);
     xlabel('Phase'); ylabel('Time (s)'); zlabel('Amplitude');
     view(34,39);
